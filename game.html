@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catch the Falling Objects</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #87CEEB;
+            font-family: Arial, sans-serif;
+        }
+        #gameCanvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
+        #scoreboard {
+            font-size: 24px;
+            color: #fff;
+            text-align: center;
+            margin-top: 20px;
+            padding: 10px;
+            background-color: rgba(0, 0, 0, 0.5);
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        #scoreboard span {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div id="scoreboard">
+        Score: <span id="score">0</span> | Missed: <span id="missed">0</span>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let canvasWidth = window.innerWidth;
+        let canvasHeight = window.innerHeight;
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
+
+        const trashCanWidth = 100;
+        const trashCanHeight = 100;
+        let trashCanX = canvasWidth / 2 - trashCanWidth / 2;
+        let trashCanSpeed = 7;
+        const objects = [];
+        const objectSize = 50;
+        let score = 0;
+        let missedCount = 0;
+        const maxMisses = 5;
+        const winScore = 1000;
+        let isGameOver = false;
+        let difficulty = 1;
+        const emojis = [
+            '🍎', '🍌', '🍔', '🍕', '🍩', '🍉', '🍪', '🥑',
+        ];
+        const trashCanEmoji = '🗑️';
+        let powerUps = [];
+        const powerUpSize = 50;
+        const powerUpTypes = ['✨', '🚀', '🛡️']; // Example power-up emojis
+
+        // Adjust canvas size on window resize
+        window.addEventListener('resize', () => {
+            canvasWidth = window.innerWidth;
+            canvasHeight = window.innerHeight;
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+        });
+
+        function drawText(text, x, y, size) {
+            ctx.font = `${size}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#000';
+            ctx.fillText(text, x, y);
+        }
+
+        function drawTrashCan() {
+            drawText(trashCanEmoji, trashCanX + trashCanWidth / 2, canvasHeight - trashCanHeight / 2, trashCanHeight);
+        }
+
+        function drawObject(obj) {
+            drawText(obj.emoji, obj.x + objectSize / 2, obj.y + objectSize / 2, objectSize);
+        }
+
+        function drawPowerUp(powerUp) {
+            drawText(powerUp.emoji, powerUp.x + powerUpSize / 2, powerUp.y + powerUpSize / 2, powerUpSize);
+        }
+
+        function updateObjects() {
+            for (let i = objects.length - 1; i >= 0; i--) {
+                objects[i].y += 5 * difficulty;
+                if (objects[i].y > canvasHeight) {
+                    missedCount++;
+                    score = Math.max(0, score - 1);
+                    objects.splice(i, 1);
+                    if (missedCount >= maxMisses) {
+                        isGameOver = true;
+                        setTimeout(() => {
+                            alert('Game Over! You missed too many objects.');
+                            window.location.href = 'index.html';
+                        }, 100);
+                    }
+                } else if (
+                    objects[i].y + objectSize > canvasHeight - trashCanHeight &&
+                    objects[i].x < trashCanX + trashCanWidth &&
+                    objects[i].x + objectSize > trashCanX
+                ) {
+                    score++;
+                    objects.splice(i, 1);
+                }
+            }
+
+            // Update power-ups
+            for (let i = powerUps.length - 1; i >= 0; i--) {
+                powerUps[i].y += 5 * difficulty;
+                if (powerUps[i].y > canvasHeight) {
+                    powerUps.splice(i, 1);
+                } else if (
+                    powerUps[i].y + powerUpSize > canvasHeight - trashCanHeight &&
+                    powerUps[i].x < trashCanX + trashCanWidth &&
+                    powerUps[i].x + powerUpSize > trashCanX
+                ) {
+                    activatePowerUp(powerUps[i].type);
+                    powerUps.splice(i, 1);
+                }
+            }
+
+            // Increase difficulty based on score
+            difficulty = Math.floor(score / 100) + 1;
+        }
+
+        function drawScoreboard() {
+            document.getElementById('score').innerText = score;
+            document.getElementById('missed').innerText = missedCount;
+        }
+
+        function gameLoop() {
+            if (isGameOver) return;
+
+            ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+            drawTrashCan();
+            updateObjects();
+            for (const obj of objects) {
+                drawObject(obj);
+            }
+            for (const powerUp of powerUps) {
+                drawPowerUp(powerUp);
+            }
+            drawScoreboard();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function spawnObject() {
+            if (isGameOver) return;
+
+            const x = Math.random() * (canvasWidth - objectSize);
+            const emoji = emojis[Math.floor(Math.random() * emojis.length)];
+            objects.push({ x, y: 0, emoji });
+            setTimeout(spawnObject, 800 / difficulty);
+        }
+
+        function spawnPowerUp() {
+            if (isGameOver) return;
+
+            if (Math.random() < 0.05) { // 5% chance to spawn a power-up
+                const x = Math.random() * (canvasWidth - powerUpSize);
+                const emoji = powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)];
+                powerUps.push({ x, y: 0, emoji, type: emoji });
+            }
+            setTimeout(spawnPowerUp, 1000); // Adjust as needed
+        }
+
+        function handleMouseMove(event) {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = event.clientX - rect.left;
+            trashCanX = mouseX - trashCanWidth / 2;
+            if (trashCanX < 0) trashCanX = 0;
+            if (trashCanX > canvasWidth - trashCanWidth) trashCanX = canvasWidth - trashCanWidth;
+        }
+
+        function activatePowerUp(type) {
+            if (type === '✨') {
+                // Example power-up: Increase score
+                score += 10;
+            } else if (type === '🚀') {
+                // Example power-up: Increase speed of objects
+                difficulty += 0.5;
+            } else if (type === '🛡️') {
+                // Example power-up: Shield (missed objects don't count)
+                missedCount = Math.max(0, missedCount - 1);
+            }
+        }
+
+        document.addEventListener('mousemove', handleMouseMove);
+
+        spawnObject();
+        spawnPowerUp();
+        gameLoop();
+    </script>
+</body>
+</html>
